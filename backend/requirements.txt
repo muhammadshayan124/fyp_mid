@@ -1,0 +1,16 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+matplotlib
+scikit-image
+h5py
+fastapi
+uvicorn[standard]
+python-multipart   # for UploadFile
+pillow
+numpy
+opencv-python-headless   # use headless to avoid GUI issues
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
+python-magic
+python-magic-bin; sys_platform == "win32"   # for Windows support
+filetype
