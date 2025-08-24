@@ -10,6 +10,5 @@ numpy
 opencv-python-headless
 torch==2.2.2+cpu
 torchvision==0.17.2+cpu
-python-magic-bin==0.4.27
 
 filetype
