@@ -12,7 +12,6 @@ import os
 from typing import List
 import uuid
 import logging
-import magic  
 from pathlib import Path
 import imghdr
 import gc
@@ -20,9 +19,8 @@ import gc
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Reduced limits for memory efficiency
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB (reduced from 10 MB)
-MAX_BATCH_SIZE = 10  # Reduced from 25
+MAX_FILE_SIZE = 5 * 1024 * 1024
+MAX_BATCH_SIZE = 10
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
 ALLOWED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/tiff'}
 
@@ -71,64 +69,58 @@ class Generator(nn.Module):
         return torch.tanh(self.output(x))
 
 def validate_file_extension(filename: str) -> bool:
-    """Validate file extension"""
     ext = Path(filename).suffix.lower()
     return ext in ALLOWED_EXTENSIONS
 
 def validate_file_size(file_size: int) -> bool:
-    """Validate file size"""
     return file_size <= MAX_FILE_SIZE
 
 def validate_image_content(file_content: bytes, filename: str) -> bool:
-    """Validate that file content is actually an image"""
+    """Validate that file content is actually an image (without magic)"""
     try:
-        mime_type = magic.from_buffer(file_content, mime=True)
-        if mime_type not in ALLOWED_MIME_TYPES:
-            logger.warning(f"Invalid MIME type for {filename}: {mime_type}")
-            return False
-        
         image_type = imghdr.what(None, h=file_content)
         if image_type is None:
             logger.warning(f"Could not determine image type for {filename}")
             return False
-        
+        # Optional: Check extension matches detected type
+        ext = Path(filename).suffix.lower().replace('.', '')
+        if image_type == 'jpeg' and ext not in ('jpg', 'jpeg'):
+            logger.warning(f"Extension mismatch for {filename}: {image_type}")
+        elif image_type != ext:
+            logger.warning(f"Extension mismatch for {filename}: {image_type}")
+        # Verify with PIL
         try:
             Image.open(io.BytesIO(file_content)).verify()
         except Exception as e:
             logger.warning(f"PIL verification failed for {filename}: {e}")
             return False
-        
         return True
     except Exception as e:
         logger.error(f"Error validating image content for {filename}: {e}")
         return False
 
 async def validate_upload_file(file: UploadFile) -> tuple[bool, str]:
-    """Comprehensive file validation"""
     if not file.filename:
         return False, "No filename provided"
-    
     if not validate_file_extension(file.filename):
         return False, f"Invalid file extension. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
-    
     if file.size and not validate_file_size(file.size):
         return False, f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)} MB"
-    
     try:
         content = await file.read()
         await file.seek(0)
-        
         if not validate_file_size(len(content)):
             return False, f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)} MB"
-        
         if not validate_image_content(content, file.filename):
             return False, "File is not a valid image or has been corrupted"
-        
         return True, "Valid"
-        
     except Exception as e:
         logger.error(f"Error reading file {file.filename}: {e}")
         return False, f"Error reading file: {str(e)}"
+
+# The rest of your backend logic (apply_natural_enhancement, preprocess_image, postprocess_image, API endpoints, SRGAN model, GPU memory management) remains unchanged.
+# You can just keep all the previous code exactly as-is after this validation section.
+
 
 def apply_natural_enhancement(image_array: np.ndarray, strength: float = 0.3) -> np.ndarray:
     """
@@ -694,4 +686,5 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
         log_level="info"
+
     )
