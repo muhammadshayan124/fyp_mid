@@ -6,7 +6,7 @@ fastapi
 uvicorn[standard]
 python-multipart
 pillow
-numpy
+numpy==1.26.0
 opencv-python-headless
 torch==2.2.2+cpu
 torchvision==0.17.2+cpu
